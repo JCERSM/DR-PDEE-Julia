@@ -12,9 +12,11 @@ module DRPDEE
     export BWPar, idcTemp, idcInput, lowessPar, PISPar, idcInfo, gegdeeTemp
 
     # Required packages
+    using Base.Threads
     using Distributions
     using Interpolations
     using LinearAlgebra
+    using LoopVectorization
     using NearestNeighbors
     using Printf
     using Random

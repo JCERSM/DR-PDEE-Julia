@@ -6,9 +6,11 @@
 ##########################################################################################
 ## Load necessary packages
 ##########################################################################################
+using Base.Threads
 using Distributions
 using Interpolations
 using LinearAlgebra
+using LoopVectorization
 using NearestNeighbors
 using Plots
 using Printf
@@ -177,14 +179,12 @@ n_knots   = size(knots)[2]
 # intermediate variables
 idc     = zeros(Float64, n_knots)
 weights = zeros(Float64, 2*n_locpts)
-b       = @MVector zeros(Float64, 3)
 stdvs   = @MVector zeros(Float64, 2)
 locvals = zeros(Float64, 2*n_locpts)
 re_coeff= @MVector zeros(Float64, 3)
 
 locpts  = zeros(Float64, 2, 2*n_locpts)
 lb_tmp  = @MVector zeros(Float64, 3)
-AA      = @MMatrix zeros(Float64, 3, 3)
 pts_n   = zeros(Float64, 2, 2*n_pts)
 knots_n = zeros(Float64, 2, n_knots)
 
@@ -196,7 +196,7 @@ pt_sym  = zeros(Float64, 2, 2*N)
 f_sym   = zeros(Float64, 2*N)
 
 # instance of composite type for LOWESS
-lowess_par = lowessPar(n_knots, idc, weights, b, stdvs, locvals, re_coeff, locpts, lb_tmp, AA, pts_n, knots_n)
+lowess_par = lowessPar(n_knots, idc, weights, stdvs, locvals, re_coeff, locpts, lb_tmp, pts_n, knots_n)
 # instances of composite type for fitting IDC
 idc_input  = idcInput(disp_samp, velo_samp, nforce_samp, knots, n_pts, nt)
 idc_temp   = idcTemp(pt_sym, f_sym, idc_ts)
