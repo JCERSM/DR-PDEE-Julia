@@ -61,6 +61,8 @@
         @views pis_par.mean_tpd_xi .= pis_par.vl_fine .+ pis_par.idcmath[:, i] .* idc_info.dt
 
         # TPD matrix
+        # Use `@threads` to speedup this part by using multiple threads
+        # @threads for j in 1:pis_par.n_vfine
         for j in 1:pis_par.n_vfine   # for a row of TPD matrix
             @inbounds for l in 1:pis_par.n_vfine
                 pis_par.tpdmat[j, l] = tpdnormpdf(pis_par.vl_fine[j], pis_par.mean_tpd_xi[l], tpdvar2, const1)
