@@ -47,8 +47,7 @@
         lowess2d_weight!(dists_ns[k], dist0_n, n_locpts, lowess_par.weights)
         @views lowess2d_linearbasis!(knots[:,k], lowess_par.lb_tmp)
         lowess_par.idc[k]  = sum((lowess_par.lb_tmp .* localregression(lowess_par.weights, lowess_par.locpts, 
-                                        lowess_par.locvals, n_locpts, lowess_par.A, lowess_par.b, 
-                                        lowess_par.re_coeff)))
+                                        lowess_par.locvals, n_locpts, lowess_par.re_coeff)))
     end
 
     return lowess_par.idc
@@ -82,53 +81,58 @@ end
 
 # a sub-function to perform regression
 @fastmath function localregression(w::Vector{Float64}, locpts::Matrix{Float64}, f::Vector{Float64}, 
-                         n_locpts::Int64, A::MMatrix{3,3,Float64}, b::MVector{3,Float64}, re_coeff::MVector{3,Float64})
+                         n_locpts::Int64, re_coeff::MVector{3,Float64})
 
-    # coefficient matrix
-    # A must be a 3*3 zero matrix
-    A .= 0.0
-    b .= 0.0
-    # re_coeff .= 0.0
-
-    @inbounds for i in 1:n_locpts
-        A[1, 1] += w[i]
-        A[2, 1] += w[i] * locpts[1, i]
-        A[3, 1] += w[i] * locpts[2, i]
-        A[2, 2] += w[i] * locpts[1, i]^2
-        A[3, 2] += w[i] * locpts[1, i] * locpts[2, i]
-        A[3, 3] += w[i] * locpts[2, i]^2
+    #elements of the coefficient matrix
+    # A[:, 1]  = lbf * w
+    # @views A[:, 2] = (lbf .* lbf[:, 2]) * w
+    # @views A[:, 3] = (lbf .* lbf[:, 3]) * w
+    A11 = 0.0
+    A21 = 0.0
+    A31 = 0.0
+    A22 = 0.0
+    A32 = 0.0
+    A33 = 0.0
+    @turbo for i in 1:n_locpts  #use `@turbo` to speedup the calculation
+        A11 += w[i]
+        A21 += w[i] * locpts[1, i]
+        A31 += w[i] * locpts[2, i]
+        A22 += w[i] * locpts[1, i]^2
+        A32 += w[i] * locpts[1, i] * locpts[2, i]
+        A33 += w[i] * locpts[2, i]^2
     end
-    # A[1, 2] = A[2, 1]
-    # A[1, 3] = A[3, 1]
-    # A[2, 3] = A[3, 2]
 
-    # coefficient vector
-    @inbounds for i in 1:n_locpts
-        b[1] += w[i] * f[i]
-        b[2] += w[i] * f[i] * locpts[1, i]
-        b[3] += w[i] * f[i] * locpts[2, i]
+    # elements of coefficient vector
+    # b        = lbf * (w .* f')
+    b1 = 0.0
+    b2 = 0.0
+    b3 = 0.0
+    @turbo for i in 1:n_locpts
+        b1 += w[i] * f[i]
+        b2 += w[i] * f[i] * locpts[1, i]
+        b3 += w[i] * f[i] * locpts[2, i]
     end
     
     # solve the equation to obtain regression coefficient
-    # re_coeff = A \ b
+    # re_coeff = A \ b (slow!)
 
-    c1          =    A[1,1] * (A[2,2]*A[3,3] - A[3,2]*A[3,2]) -
-                     A[2,1] * (A[2,1]*A[3,3] - A[3,1]*A[3,2]) +
-                     A[3,1] * (A[2,1]*A[3,2] - A[3,1]*A[2,2])
-
-    c1          = max(c1, 1e-10)
+    c1          =   A11 * (A22*A33 - A32*A32) -
+                    A21 * (A21*A33 - A31*A32) +
+                    A31 * (A21*A32 - A31*A22)
     
-    re_coeff[1] =  ((A[2,2]*A[3,3] - A[3,2]*A[3,2]) * b[1] +
-                    (A[3,1]*A[3,2] - A[2,1]*A[3,3]) * b[2] +
-                    (A[2,1]*A[3,2] - A[3,1]*A[2,2]) * b[3]) / c1
-
-    re_coeff[2] =  ((A[3,2]*A[3,1] - A[2,1]*A[3,3]) * b[1] +
-                    (A[1,1]*A[3,3] - A[3,1]*A[3,1]) * b[2] +
-                    (A[2,1]*A[3,1] - A[1,1]*A[3,2]) * b[3]) / c1
+    c1          =   max(c1, 1e-10)
     
-    re_coeff[3] =  ((A[2,1]*A[3,2] - A[2,2]*A[3,1]) * b[1] +
-                    (A[2,1]*A[3,1] - A[1,1]*A[3,2]) * b[2] +
-                    (A[1,1]*A[2,2] - A[2,1]*A[2,1]) * b[3]) / c1
+    re_coeff[1] =  ((A22*A33 - A32*A32) * b1 +
+                    (A31*A32 - A21*A33) * b2 +
+                    (A21*A32 - A31*A22) * b3) / c1
+    
+    re_coeff[2] =  ((A32*A31 - A21*A33) * b1 +
+                    (A11*A33 - A31*A31) * b2 +
+                    (A21*A31 - A11*A32) * b3) / c1
+    
+    re_coeff[3] =  ((A21*A32 - A22*A31) * b1 +
+                    (A21*A31 - A11*A32) * b2 +
+                    (A11*A22 - A21*A21) * b3) / c1
 
     return re_coeff
 end

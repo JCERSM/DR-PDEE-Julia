@@ -83,7 +83,6 @@ struct lowessPar
 
     # intermediate variables (Vector)
     weights :: Vector{Float64}
-    b       :: MVector{3,Float64}
     stdvs   :: MVector{2,Float64}
     locvals :: Vector{Float64}
     re_coeff:: MVector{3,Float64}
@@ -91,7 +90,6 @@ struct lowessPar
     # intermediate variables (Matrix)
     locpts  :: Matrix{Float64}
     lb_tmp  :: MVector{3,Float64}
-    A       :: MMatrix{3,3,Float64}
     pts_n   :: Matrix{Float64}
     knots_n :: Matrix{Float64}
 end
